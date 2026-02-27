@@ -1,0 +1,4 @@
+# file: C:\0_Personal\Bagya\zz_Learning\AWS_GPL_Supply_Chain\AWS_SC_Phase_2\lambda\procurement_agent\lambda_function.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.3, 0.4, 0.5, 0.65, 0.7, 0.75, 0.8, 1.0, 200, 500, 5439, 'Procurement_Agent', 'REDSHIFT_DATABASE', 'REDSHIFT_HOST', 'REDSHIFT_PASSWORD', 'REDSHIFT_PORT', 'REDSHIFT_USER', 'agent_name', 'avg_lead_time_days', 'avg_mape', 'body', 'confidence_score', 'current_inventory', 'decision_id', 'decision_type', 'decisions_made', 'error', 'factors', 'failed', 'message', 'pending_approval', 'po_value', 'predicted_demand', 'product_id', 'quantity', 'quantity_on_hand', 'rationale', 'reliability_score', 'reorder_point', 'reorder_quantity', 'sku', 'statusCode', 'successful', 'supplier_id', 'supplier_lead_time', 'supplier_name', 'supplier_reliability', 'unit_cost', 'unit_price', 'warehouse_id']

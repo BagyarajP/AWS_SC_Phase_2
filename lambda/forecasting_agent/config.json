@@ -1,0 +1,319 @@
+{
+  "agentName": "supply-chain-forecasting-agent",
+  "description": "Autonomous demand forecasting agent for supply chain optimization",
+  "foundationModel": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+  "region": "us-east-1",
+  "instruction": "You are an autonomous demand forecasting agent for a supply chain platform. Your role is to generate accurate demand forecasts for all SKUs using time series analysis and statistical models.\n\nYour responsibilities:\n1. Retrieve historical sales data for specified products\n2. Generate forecasts using statistical models (Holt-Winters and ARIMA ensemble)\n3. Calculate confidence intervals at 80% and 95% levels\n4. Store forecasts in the database for downstream consumption\n5. Evaluate forecast accuracy using MAPE (Mean Absolute Percentage Error)\n6. Provide detailed explanations for your forecasts and recommendations\n\nWhen generating forecasts:\n- Always start by retrieving 12 months of historical sales data\n- Consider seasonality patterns in the data\n- Generate both 7-day and 30-day horizon forecasts\n- Include confidence intervals to quantify uncertainty\n- Store all forecasts in the database\n- Calculate accuracy metrics for previous forecasts to improve future predictions\n\nAlways provide clear, detailed explanations for your forecasts, including:\n- Key patterns observed in historical data\n- Seasonality factors\n- Confidence levels and uncertainty ranges\n- Recommendations for inventory planning based on forecasts",
+  "actionGroups": [
+    {
+      "actionGroupName": "forecasting-tools",
+      "description": "Tools for demand forecasting and accuracy evaluation",
+      "actionGroupExecutor": {
+        "lambda": "arn:aws:lambda:us-east-1:ACCOUNT_ID:function:forecasting-agent-tools"
+      },
+      "apiSchema": {
+        "payload": {
+          "openapi": "3.0.0",
+          "info": {
+            "title": "Forecasting Agent Tools API",
+            "version": "1.0.0",
+            "description": "API for demand forecasting operations"
+          },
+          "paths": {
+            "/get_historical_sales": {
+              "post": {
+                "summary": "Retrieve historical sales data for a product",
+                "description": "Queries Redshift for 12 months of historical sales data for specified SKU",
+                "operationId": "getHistoricalSales",
+                "requestBody": {
+                  "required": true,
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "product_id": {
+                            "type": "integer",
+                            "description": "The product ID to retrieve sales data for"
+                          },
+                          "months_back": {
+                            "type": "integer",
+                            "description": "Number of months of historical data to retrieve (default: 12)",
+                            "default": 12
+                          }
+                        },
+                        "required": ["product_id"]
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "Historical sales data retrieved successfully",
+                    "content": {
+                      "application/json": {
+                        "schema": {
+                          "type": "object",
+                          "properties": {
+                            "product_id": {
+                              "type": "integer"
+                            },
+                            "time_series": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "date": {
+                                    "type": "string",
+                                    "format": "date"
+                                  },
+                                  "quantity": {
+                                    "type": "number"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "/calculate_forecast": {
+              "post": {
+                "summary": "Generate demand forecast using statistical models",
+                "description": "Calculates forecast using Holt-Winters and ARIMA ensemble with confidence intervals",
+                "operationId": "calculateForecast",
+                "requestBody": {
+                  "required": true,
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "product_id": {
+                            "type": "integer",
+                            "description": "The product ID to forecast"
+                          },
+                          "time_series": {
+                            "type": "array",
+                            "description": "Historical sales data",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "date": {
+                                  "type": "string",
+                                  "format": "date"
+                                },
+                                "quantity": {
+                                  "type": "number"
+                                }
+                              }
+                            }
+                          },
+                          "horizon_days": {
+                            "type": "integer",
+                            "description": "Forecast horizon in days (7 or 30)",
+                            "enum": [7, 30]
+                          }
+                        },
+                        "required": ["product_id", "time_series", "horizon_days"]
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "Forecast calculated successfully",
+                    "content": {
+                      "application/json": {
+                        "schema": {
+                          "type": "object",
+                          "properties": {
+                            "product_id": {
+                              "type": "integer"
+                            },
+                            "horizon_days": {
+                              "type": "integer"
+                            },
+                            "forecast": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "date": {
+                                    "type": "string",
+                                    "format": "date"
+                                  },
+                                  "forecast_value": {
+                                    "type": "number"
+                                  },
+                                  "confidence_80_lower": {
+                                    "type": "number"
+                                  },
+                                  "confidence_80_upper": {
+                                    "type": "number"
+                                  },
+                                  "confidence_95_lower": {
+                                    "type": "number"
+                                  },
+                                  "confidence_95_upper": {
+                                    "type": "number"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "/store_forecast": {
+              "post": {
+                "summary": "Store forecast records in database",
+                "description": "Inserts forecast records into demand_forecast table via Redshift Data API",
+                "operationId": "storeForecast",
+                "requestBody": {
+                  "required": true,
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "product_id": {
+                            "type": "integer",
+                            "description": "The product ID"
+                          },
+                          "forecast_data": {
+                            "type": "array",
+                            "description": "Forecast records to store",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "forecast_date": {
+                                  "type": "string",
+                                  "format": "date"
+                                },
+                                "forecast_value": {
+                                  "type": "number"
+                                },
+                                "confidence_80_lower": {
+                                  "type": "number"
+                                },
+                                "confidence_80_upper": {
+                                  "type": "number"
+                                },
+                                "confidence_95_lower": {
+                                  "type": "number"
+                                },
+                                "confidence_95_upper": {
+                                  "type": "number"
+                                }
+                              }
+                            }
+                          },
+                          "horizon_days": {
+                            "type": "integer",
+                            "description": "Forecast horizon (7 or 30)"
+                          }
+                        },
+                        "required": ["product_id", "forecast_data", "horizon_days"]
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "Forecast stored successfully",
+                    "content": {
+                      "application/json": {
+                        "schema": {
+                          "type": "object",
+                          "properties": {
+                            "success": {
+                              "type": "boolean"
+                            },
+                            "records_inserted": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "/calculate_accuracy": {
+              "post": {
+                "summary": "Calculate forecast accuracy metrics",
+                "description": "Calculates MAPE by comparing forecasts to actual demand and stores in forecast_accuracy table",
+                "operationId": "calculateAccuracy",
+                "requestBody": {
+                  "required": true,
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "product_id": {
+                            "type": "integer",
+                            "description": "The product ID to evaluate"
+                          },
+                          "evaluation_period_days": {
+                            "type": "integer",
+                            "description": "Number of days to evaluate (default: 30)",
+                            "default": 30
+                          }
+                        },
+                        "required": ["product_id"]
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "Accuracy calculated successfully",
+                    "content": {
+                      "application/json": {
+                        "schema": {
+                          "type": "object",
+                          "properties": {
+                            "product_id": {
+                              "type": "integer"
+                            },
+                            "mape": {
+                              "type": "number",
+                              "description": "Mean Absolute Percentage Error"
+                            },
+                            "evaluation_period_days": {
+                              "type": "integer"
+                            },
+                            "forecast_count": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "idleSessionTTLInSeconds": 600,
+  "tags": {
+    "Project": "SupplyChainAI",
+    "Component": "ForecastingAgent",
+    "Environment": "Production"
+  }
+}

@@ -1,0 +1,18 @@
+# Forecasting Agent Lambda Requirements
+
+# AWS SDK
+boto3>=1.28.0
+
+# Data processing
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Statistical forecasting
+statsmodels>=0.14.0
+scipy>=1.10.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+hypothesis>=6.82.0
+moto>=4.1.0

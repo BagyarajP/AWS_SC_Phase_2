@@ -1,0 +1,9 @@
+# Lambda function dependencies for calculate_forecast tool
+# These packages need to be included in the Lambda deployment package
+
+numpy>=1.24.0
+boto3>=1.26.0
+
+# For testing only (not needed in Lambda deployment)
+# pytest>=7.0.0
+# pytest-mock>=3.10.0

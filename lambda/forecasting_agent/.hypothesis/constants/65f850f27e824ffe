@@ -1,0 +1,4 @@
+# file: C:\0_Personal\Bagya\zz_Learning\AWS_GPL_Supply_Chain\AWS_SC_Phase_2\lambda\forecasting_agent\lambda_function.py
+# hypothesis_version: 6.151.9
+
+[0.05, 0.2, 0.8, 0.95, 1.28, 1.96, 100, 200, 500, 512, ',', '-80', '-95', '5439', '7,30', '80', '95', 'D', 'FORECAST_HORIZONS', 'REDSHIFT_DATABASE', 'REDSHIFT_HOST', 'REDSHIFT_PASSWORD', 'REDSHIFT_PORT', 'REDSHIFT_USER', 'SELECT 1', 'Scheduled Event', '__main__', 'add', 'aws.events', 'body', 'detail-type', 'error', 'errors', 'estimated', 'failed', 'failed_forecasts', 'forecast_date', 'forecast_id', 'forecasts', 'horizon', 'ignore', 'lower', 'order_date', 'predicted_demand', 'product_id', 'quantity', 'source', 'statusCode', 'successful', 'successful_forecasts', 'test-request-id', 'total_skus', 'upper']

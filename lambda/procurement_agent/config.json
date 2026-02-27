@@ -1,0 +1,336 @@
+{
+  "agentName": "supply-chain-procurement-agent",
+  "description": "Autonomous procurement agent for supply chain optimization with supplier selection and purchase order management",
+  "foundationModel": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+  "region": "us-east-1",
+  "instruction": "You are an autonomous procurement agent for a supply chain platform. Your role is to optimize procurement decisions by analyzing inventory levels, demand forecasts, supplier performance, and cost factors.\n\nYour responsibilities:\n1. Monitor inventory levels and identify products below reorder points\n2. Analyze demand forecasts to determine optimal order quantities\n3. Evaluate supplier performance (reliability, pricing, lead time, defect rate)\n4. Calculate Economic Order Quantity (EOQ) for cost optimization\n5. Create purchase orders with appropriate approval routing\n6. Provide detailed rationale for all procurement decisions\n\nDecision-making process:\n- Always start by checking inventory levels for products below reorder point\n- Retrieve demand forecasts to understand future requirements\n- Evaluate all available suppliers based on performance metrics\n- Calculate EOQ to determine optimal order quantity\n- Consider total cost of ownership (price + ordering cost + holding cost)\n- Generate confidence scores based on data quality and decision complexity\n- Route high-risk decisions to approval queue (value > £10k OR confidence < 0.7)\n\nWhen creating purchase orders:\n- Select suppliers based on: reliability score > 0.85, lowest total cost, acceptable lead time\n- Provide clear rationale explaining: inventory status, demand forecast, supplier selection, quantity calculation\n- Include confidence score reflecting decision certainty\n- Explain why approval is needed for high-risk orders\n\nAlways provide detailed, transparent explanations for your decisions including:\n- Current inventory status and urgency\n- Demand forecast analysis\n- Supplier comparison and selection rationale\n- Cost analysis and EOQ calculation\n- Risk factors and confidence assessment",
+  "actionGroups": [
+    {
+      "actionGroupName": "procurement-tools",
+      "description": "Tools for procurement decision-making and purchase order management",
+      "actionGroupExecutor": {
+        "lambda": "arn:aws:lambda:us-east-1:ACCOUNT_ID:function:procurement-agent-tools"
+      },
+      "apiSchema": {
+        "payload": {
+          "openapi": "3.0.0",
+          "info": {
+            "title": "Procurement Agent Tools API",
+            "version": "1.0.0",
+            "description": "API for procurement operations and supplier management"
+          },
+          "paths": {
+            "/get_inventory_levels": {
+              "post": {
+                "summary": "Retrieve current inventory levels",
+                "description": "Queries Redshift for current inventory and reorder points with optional filters",
+                "operationId": "getInventoryLevels",
+                "requestBody": {
+                  "required": false,
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "warehouse_id": {
+                            "type": "integer",
+                            "description": "Filter by specific warehouse (optional)"
+                          },
+                          "below_reorder_point_only": {
+                            "type": "boolean",
+                            "description": "Only return items below reorder point (default: false)",
+                            "default": false
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "Inventory levels retrieved successfully",
+                    "content": {
+                      "application/json": {
+                        "schema": {
+                          "type": "object",
+                          "properties": {
+                            "inventory_records": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "inventory_id": {"type": "integer"},
+                                  "product_id": {"type": "integer"},
+                                  "product_name": {"type": "string"},
+                                  "category": {"type": "string"},
+                                  "warehouse_id": {"type": "integer"},
+                                  "warehouse_name": {"type": "string"},
+                                  "quantity_on_hand": {"type": "number"},
+                                  "reorder_point": {"type": "number"},
+                                  "reorder_quantity": {"type": "number"},
+                                  "quantity_above_reorder": {"type": "number"}
+                                }
+                              }
+                            },
+                            "total_count": {"type": "integer"}
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "/get_demand_forecast": {
+              "post": {
+                "summary": "Retrieve demand forecasts",
+                "description": "Queries demand_forecast table for specified SKUs and horizon",
+                "operationId": "getDemandForecast",
+                "requestBody": {
+                  "required": true,
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "product_id": {
+                            "type": "integer",
+                            "description": "Product ID to get forecast for"
+                          },
+                          "horizon_days": {
+                            "type": "integer",
+                            "description": "Forecast horizon (7 or 30 days)",
+                            "enum": [7, 30],
+                            "default": 30
+                          },
+                          "start_date": {
+                            "type": "string",
+                            "format": "date",
+                            "description": "Start date for forecast (default: today)"
+                          }
+                        },
+                        "required": ["product_id"]
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "Forecast retrieved successfully",
+                    "content": {
+                      "application/json": {
+                        "schema": {
+                          "type": "object",
+                          "properties": {
+                            "product_id": {"type": "integer"},
+                            "horizon_days": {"type": "integer"},
+                            "forecast_records": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "forecast_date": {"type": "string", "format": "date"},
+                                  "forecast_value": {"type": "number"},
+                                  "confidence_80_lower": {"type": "number"},
+                                  "confidence_80_upper": {"type": "number"}
+                                }
+                              }
+                            },
+                            "summary": {
+                              "type": "object",
+                              "properties": {
+                                "total_forecast_demand": {"type": "number"},
+                                "average_daily_demand": {"type": "number"}
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "/get_supplier_data": {
+              "post": {
+                "summary": "Retrieve supplier performance data",
+                "description": "Queries supplier table for specified product with pricing and performance metrics",
+                "operationId": "getSupplierData",
+                "requestBody": {
+                  "required": true,
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "product_id": {
+                            "type": "integer",
+                            "description": "Product ID to get suppliers for"
+                          }
+                        },
+                        "required": ["product_id"]
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "Supplier data retrieved successfully",
+                    "content": {
+                      "application/json": {
+                        "schema": {
+                          "type": "object",
+                          "properties": {
+                            "product_id": {"type": "integer"},
+                            "suppliers": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "supplier_id": {"type": "integer"},
+                                  "supplier_name": {"type": "string"},
+                                  "reliability_score": {"type": "number"},
+                                  "defect_rate": {"type": "number"},
+                                  "lead_time_days": {"type": "integer"},
+                                  "unit_price": {"type": "number"},
+                                  "minimum_order_quantity": {"type": "integer"}
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "/calculate_eoq": {
+              "post": {
+                "summary": "Calculate Economic Order Quantity",
+                "description": "Calculates optimal order quantity using EOQ formula",
+                "operationId": "calculateEOQ",
+                "requestBody": {
+                  "required": true,
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "annual_demand": {
+                            "type": "number",
+                            "description": "Annual demand quantity"
+                          },
+                          "order_cost": {
+                            "type": "number",
+                            "description": "Cost per order"
+                          },
+                          "holding_cost": {
+                            "type": "number",
+                            "description": "Holding cost per unit per year"
+                          }
+                        },
+                        "required": ["annual_demand", "order_cost", "holding_cost"]
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "EOQ calculated successfully",
+                    "content": {
+                      "application/json": {
+                        "schema": {
+                          "type": "object",
+                          "properties": {
+                            "eoq": {"type": "number"},
+                            "orders_per_year": {"type": "number"},
+                            "total_annual_cost": {"type": "number"}
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "/create_purchase_order": {
+              "post": {
+                "summary": "Create purchase order with approval routing",
+                "description": "Creates purchase order and routes to approval queue if high-risk (value > £10k OR confidence < 0.7)",
+                "operationId": "createPurchaseOrder",
+                "requestBody": {
+                  "required": true,
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "product_id": {
+                            "type": "integer",
+                            "description": "Product ID"
+                          },
+                          "supplier_id": {
+                            "type": "integer",
+                            "description": "Selected supplier ID"
+                          },
+                          "quantity": {
+                            "type": "number",
+                            "description": "Order quantity"
+                          },
+                          "unit_price": {
+                            "type": "number",
+                            "description": "Price per unit"
+                          },
+                          "rationale": {
+                            "type": "string",
+                            "description": "LLM-generated rationale for the decision"
+                          },
+                          "confidence_score": {
+                            "type": "number",
+                            "description": "Confidence score (0-1)",
+                            "minimum": 0,
+                            "maximum": 1
+                          }
+                        },
+                        "required": ["product_id", "supplier_id", "quantity", "unit_price", "rationale", "confidence_score"]
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "Purchase order created successfully",
+                    "content": {
+                      "application/json": {
+                        "schema": {
+                          "type": "object",
+                          "properties": {
+                            "success": {"type": "boolean"},
+                            "status": {
+                              "type": "string",
+                              "enum": ["approved", "pending_approval"]
+                            },
+                            "total_value": {"type": "number"},
+                            "needs_approval": {"type": "boolean"},
+                            "approval_reason": {"type": "string"}
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "idleSessionTTLInSeconds": 600,
+  "tags": {
+    "Project": "SupplyChainAI",
+    "Component": "ProcurementAgent",
+    "Environment": "Production"
+  }
+}
