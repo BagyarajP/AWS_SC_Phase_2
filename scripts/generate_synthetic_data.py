@@ -22,7 +22,7 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 def generate_products():
     """Generate 2,000 SKUs with realistic attributes"""
-    categories = ['Electrical', 'Plumbing', 'HVAC', 'Safety', 'Tools']
+    categories = ['Electrical', 'Plumbing', 'HIVE', 'Safety', 'Tools']
     products = []
     
     for i in range(NUM_SKUS):
@@ -160,7 +160,7 @@ def generate_purchase_orders(products, suppliers):
             'po_id': po_id,
             'supplier_id': supplier['supplier_id'],
             'order_date': order_date.date().isoformat(),
-            'expected_delivery_date': (order_date + timedelta(days=supplier['avg_lead_time_days'])).date().isoformat(),
+            'expected_delivery_date': (order_date + timedelta(days=int(supplier['avg_lead_time_days']))).date().isoformat(),
             'total_amount': 0,  # Will calculate after lines
             'status': random.choice(['pending', 'approved', 'delivered']),
             'created_by': 'system',

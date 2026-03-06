@@ -1,0 +1,4 @@
+warehouse_id,warehouse_name,location,capacity,created_at
+WH1_South,South Warehouse,London,50000,2026-02-27T14:39:29.184940
+WH_Midland,Midland Warehouse,Birmingham,40000,2026-02-27T14:39:29.184946
+WH_North,North Warehouse,Manchester,35000,2026-02-27T14:39:29.184947

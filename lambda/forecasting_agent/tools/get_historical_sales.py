@@ -145,12 +145,15 @@ def query_historical_sales(product_id: str, months_back: int) -> list:
         
         logger.info(f"Executing Redshift query for product {product_id}")
         
-        # Execute query using Redshift Data API
+        # Execute query using Redshift Data API with IAM authentication
         response = redshift_data.execute_statement(
             WorkgroupName=os.environ['REDSHIFT_WORKGROUP'],
             Database=os.environ['REDSHIFT_DATABASE'],
             Sql=sql
         )
+        # Note: When using WorkgroupName (Redshift Serverless), IAM authentication is automatic
+        # The IAM role attached to Lambda must have redshift-data permissions
+        # and a corresponding database user "IAMR:RoleName" must exist in Redshift
         
         query_id = response['Id']
         logger.info(f"Query submitted with ID: {query_id}")
